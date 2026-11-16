@@ -1,0 +1,11 @@
+# Your station config (radio serials, paths) stays local
+config/station.psd1
+
+# Run output if DataRoot is ever pointed inside the repo
+ShackMigration/
+*.log
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
