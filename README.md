@@ -67,7 +67,7 @@ the settings folders to carry over, and holds your app list.
 
 ## What has and hasn't been tested
 
-- **Tested:** the pure logic is covered by `tests\Run-Tests.ps1` (62 checks,
+- **Tested:** the pure logic is covered by `tests\Run-Tests.ps1` (70 checks,
   passing under PowerShell 7.4): device identity parsing, COM bitmap
   arithmetic including swaps, port-plan matching and conflicts, and path
   mapping between PCs. All scripts parse cleanly.

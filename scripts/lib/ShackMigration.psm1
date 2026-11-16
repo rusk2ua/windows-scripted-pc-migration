@@ -5,7 +5,7 @@
 
 Set-StrictMode -Version 2.0
 
-$script:ToolVersion = '2026.11.16'
+$script:ToolVersion = '2026.11.16.2'
 $script:LogFile = $null
 
 function Get-ToolVersion { return $script:ToolVersion }
@@ -197,6 +197,31 @@ function Resolve-ConfigPaths {
         }
     }
     return @($found | Select-Object -Unique)
+}
+
+function Test-BackupExcluded {
+    # True when FullName (under Root) sits in an excluded folder name or matches an excluded file pattern.
+    param(
+        [Parameter(Mandatory = $true)][string]$FullName,
+        [Parameter(Mandatory = $true)][string]$Root,
+        [string[]]$ExcludeDirs,
+        [string[]]$ExcludeFiles
+    )
+    $rel = $FullName
+    if ($FullName.StartsWith($Root.TrimEnd('\') + '\', [StringComparison]::OrdinalIgnoreCase)) {
+        $rel = $FullName.Substring($Root.TrimEnd('\').Length + 1)
+    }
+    $segments = @($rel -split '\\')
+    $leaf = $segments[-1]
+    if ($ExcludeFiles) {
+        foreach ($pat in $ExcludeFiles) { if ($pat -and $leaf -like $pat) { return $true } }
+    }
+    if ($ExcludeDirs -and $segments.Count -gt 1) {
+        foreach ($seg in $segments[0..($segments.Count - 2)]) {
+            foreach ($d in $ExcludeDirs) { if ($d -and $seg -like $d) { return $true } }
+        }
+    }
+    return $false
 }
 
 function Get-SafeName {

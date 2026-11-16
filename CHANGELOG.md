@@ -2,6 +2,12 @@
 
 Date-based versions (YYYY.MM.DD).
 
+## 2026.11.16.2
+
+- `02-Backup`: per-folder `ExcludeDirs` / `ExcludeFiles` (passed to robocopy and honoured in the size report). Example config skips the WSJT-X `save` folders, which held ~40 GB of .wav files on the first real run.
+- `02-Backup`: a wildcard that matches a file (not a folder) is now backed up as a loose file instead of failing in robocopy.
+- `02-Backup`: reports free space on the DataRoot drive and flags it when the backup would not fit.
+
 ## 2026.11.16 (fix 1)
 
 - Device discovery uses cfgmgr32 for parent lookups instead of WMI. On the first real run, 01-Inventory stalled for 20+ minutes on a PC with many USB devices.

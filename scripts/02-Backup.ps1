@@ -28,13 +28,26 @@ if (Test-IsAdmin) { Write-Log 'This window is elevated. That is fine if you are 
 
 # --- Resolve what to back up ---------------------------------------------------
 $items = @()
+$loose = @()
 foreach ($sf in @($cfg.SettingsFolders)) {
     $paths = @(Resolve-ConfigPaths -Candidates $sf.Candidates)
     if ($paths.Count -eq 0) { Write-Log "Not found: $($sf.Name)  (Candidates: $($sf.Candidates -join '; '))" 'WARN'; continue }
+    $exDirs = @()
+    $exFiles = @()
+    if ($sf.ContainsKey('ExcludeDirs')) { $exDirs = @($sf.ExcludeDirs) }
+    if ($sf.ContainsKey('ExcludeFiles')) { $exFiles = @($sf.ExcludeFiles) }
     foreach ($p in $paths) {
-        $files = @(Get-ChildItem -LiteralPath $p -Recurse -File -Force -ErrorAction SilentlyContinue)
+        if (Test-Path -LiteralPath $p -PathType Leaf) {
+            # A wildcard matched a file, not a folder: back it up as a loose file.
+            $loose += [pscustomobject]@{ Name = $sf.Name; Source = $p; PortablePath = (ConvertTo-PortablePath -Path $p) }
+            Write-Log ('{0,-28} file {1}' -f $sf.Name, $p) 'PLAN'
+            continue
+        }
+        $all = @(Get-ChildItem -LiteralPath $p -Recurse -File -Force -ErrorAction SilentlyContinue)
+        $files = @($all | Where-Object { -not (Test-BackupExcluded -FullName $_.FullName -Root $p -ExcludeDirs $exDirs -ExcludeFiles $exFiles) })
         $bytes = ($files | Measure-Object Length -Sum).Sum
         if (-not $bytes) { $bytes = 0 }
+        $skipped = $all.Count - $files.Count
         $restore = $true
         if ($sf.ContainsKey('Restore')) { $restore = [bool]$sf.Restore }
         $sensitive = $false
@@ -42,13 +55,17 @@ foreach ($sf in @($cfg.SettingsFolders)) {
         $items += [pscustomobject]@{
             Name = $sf.Name; Source = $p; PortablePath = (ConvertTo-PortablePath -Path $p)
             Files = $files.Count; Bytes = [long]$bytes; Restore = $restore; Sensitive = $sensitive
-            Process = @($sf.Process)
+            Process = @($sf.Process); ExcludeDirs = $exDirs; ExcludeFiles = $exFiles
         }
-        Write-Log ('{0,-28} {1,6} files {2,8} MB  {3}' -f $sf.Name, $files.Count, [math]::Round($bytes / 1MB, 1), $p) 'PLAN'
+        $note = ''
+        if ($skipped -gt 0) {
+            $skippedMB = [math]::Round(((($all | Measure-Object Length -Sum).Sum) - $bytes) / 1MB, 1)
+            $note = "  (excluding $skipped files, $skippedMB MB)"
+        }
+        Write-Log ('{0,-28} {1,6} files {2,8} MB  {3}{4}' -f $sf.Name, $files.Count, [math]::Round($bytes / 1MB, 1), $p, $note) 'PLAN'
     }
 }
 
-$loose = @()
 foreach ($fp in @($cfg.FilePatterns)) {
     $root = ConvertFrom-PortablePath -Path $fp.Root
     if (-not (Test-Path -LiteralPath $root)) { continue }
@@ -89,6 +106,15 @@ if (@($items | Where-Object Sensitive).Count -gt 0) {
 $totalMB = [math]::Round((($items | Measure-Object Bytes -Sum).Sum) / 1MB, 1)
 Write-Log "Total: $(@($items).Count) folders, $(@($loose).Count) files, $(@($regs).Count) registry keys, $totalMB MB"
 
+try {
+    $drive = (Split-Path -Qualifier $cfg.DataRoot).TrimEnd(':')
+    $freeMB = [math]::Round((Get-PSDrive -Name $drive -ErrorAction Stop).Free / 1MB)
+    $lvl = 'INFO'
+    if ($freeMB -lt ($totalMB * 1.2 + 2048)) { $lvl = 'ERROR' }
+    Write-Log "Free space on ${drive}: $freeMB MB (backup needs about $totalMB MB)" $lvl
+}
+catch { }
+
 if (-not $Apply) { Write-Log 'Report complete. Nothing was copied.' 'OK'; return }
 
 if ($running.Count -gt 0 -and -not $Force) { throw 'Close the running apps listed above (or add -Force to copy anyway).' }
@@ -106,12 +132,15 @@ foreach ($i in $items) {
     $rel = 'files\{0:D2}_{1}' -f $n, (Get-SafeName $i.Name)
     $dest = Join-Path $out $rel
     Write-Log "Copying $($i.Source)" 'ACTION'
-    & robocopy.exe $i.Source $dest /E /COPY:DAT /DCOPY:T /R:1 /W:1 /XJ /NFL /NDL /NP /NJH /NJS | Out-Null
+    $rcArgs = @($i.Source, $dest, '/E', '/COPY:DAT', '/DCOPY:T', '/R:1', '/W:1', '/XJ', '/NFL', '/NDL', '/NP', '/NJH', '/NJS')
+    if (@($i.ExcludeDirs).Count -gt 0) { $rcArgs += '/XD'; $rcArgs += @($i.ExcludeDirs) }
+    if (@($i.ExcludeFiles).Count -gt 0) { $rcArgs += '/XF'; $rcArgs += @($i.ExcludeFiles) }
+    & robocopy.exe @rcArgs | Out-Null
     $rc = $LASTEXITCODE
     if ($rc -ge 8) { Write-Log "robocopy failed (exit $rc) for $($i.Source)" 'ERROR' }
     $manifest.Folders += [pscustomobject]@{
         Name = $i.Name; PortablePath = $i.PortablePath; OriginalPath = $i.Source; BackupPath = $rel
-        Files = $i.Files; Bytes = $i.Bytes; Restore = $i.Restore; Sensitive = $i.Sensitive; Process = $i.Process; RobocopyExit = $rc
+        Files = $i.Files; Bytes = $i.Bytes; Restore = $i.Restore; Sensitive = $i.Sensitive; Process = $i.Process; ExcludeDirs = $i.ExcludeDirs; ExcludeFiles = $i.ExcludeFiles; RobocopyExit = $rc
     }
 }
 $looseRoot = Join-Path $out 'loose'

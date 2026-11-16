@@ -35,10 +35,12 @@
     # Settings folders to back up (02) and restore (06).
     # Process: stop these before backup/restore. Restore = $false means
     # back up only. Sensitive = $true means the backup holds keys/passwords.
+    # ExcludeDirs: folder names to skip anywhere inside (e.g. WSJT-X 'save' wav files).
+    # ExcludeFiles: file patterns to skip (e.g. '*.wav').
     # ---------------------------------------------------------------------
     SettingsFolders = @(
         @{ Name = 'N1MM Logger+'; Candidates = @('%DOCUMENTS%\N1MM Logger+'); Process = @('N1MMLogger.net'); Restore = $true }
-        @{ Name = 'WSJT-X'; Candidates = @('%LOCALAPPDATA%\WSJT-X*'); Process = @('wsjtx', 'jt9'); Restore = $true }
+        @{ Name = 'WSJT-X'; Candidates = @('%LOCALAPPDATA%\WSJT-X*'); Process = @('wsjtx', 'jt9'); Restore = $true; ExcludeDirs = @('save') }
         @{ Name = 'TrustedQSL'; Candidates = @('%APPDATA%\TrustedQSL'); Process = @('tqsl'); Restore = $true; Sensitive = $true }
         @{ Name = 'AnyDesk user settings'; Candidates = @('%APPDATA%\AnyDesk'); Process = @(); Restore = $false; Sensitive = $true }
     )

@@ -111,6 +111,17 @@ Assert-Equal 'C:\Program Files\X' (ConvertFrom-PortablePath '%PROGRAMFILES%\X' $
 
 Assert-Equal 'N1MM_Logger' (Get-SafeName 'N1MM Logger+') 'safe name'
 
+# --- Test-BackupExcluded ----------------------------------------------------------------
+$root = 'C:\Users\op\AppData\Local\WSJT-X'
+Assert-True (Test-BackupExcluded "$root\save\260101_120000.wav" $root @('save') @()) 'file in save excluded'
+Assert-True (Test-BackupExcluded "$root\save\sub\x.wav" $root @('save') @()) 'nested file in save excluded'
+Assert-True (-not (Test-BackupExcluded "$root\WSJT-X.ini" $root @('save') @())) 'ini kept'
+Assert-True (-not (Test-BackupExcluded "$root\save.ini" $root @('save') @())) 'file named like the dir is kept'
+Assert-True (Test-BackupExcluded "$root\ALL.TXT" $root @() @('ALL.TXT')) 'file pattern excluded'
+Assert-True (Test-BackupExcluded "$root\x\a.wav" $root @() @('*.wav')) 'wildcard file pattern'
+Assert-True (-not (Test-BackupExcluded "$root\x\a.wav" $root @() @())) 'nothing excluded by default'
+Assert-True (-not (Test-BackupExcluded "$root\saved\a.txt" $root @('save') @())) 'saved is not save'
+
 # --- New-PortPlan -----------------------------------------------------------------------
 function New-P {
     param($Id, $Com, $Label = $null, $Name = 'dev')
