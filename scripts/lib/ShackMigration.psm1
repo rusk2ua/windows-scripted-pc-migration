@@ -396,14 +396,58 @@ function New-PortPlan {
 # Live device discovery (Windows only)
 # ---------------------------------------------------------------------------
 
+# Fast parent lookup through cfgmgr32 (microseconds per call). Get-PnpDeviceProperty
+# goes through WMI and can take seconds per device on a PC with many USB devices.
+$script:CfgMgrReady = $false
+if ($env:OS -eq 'Windows_NT') {
+    try {
+        if (-not ('ShackCfgMgr' -as [type])) {
+            Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+using System.Text;
+public static class ShackCfgMgr {
+    [DllImport("cfgmgr32.dll", CharSet = CharSet.Unicode)]
+    static extern int CM_Locate_DevNodeW(out uint pdnDevInst, string pDeviceID, uint ulFlags);
+    [DllImport("cfgmgr32.dll")]
+    static extern int CM_Get_Parent(out uint pdnDevInst, uint dnDevInst, uint ulFlags);
+    [DllImport("cfgmgr32.dll", CharSet = CharSet.Unicode)]
+    static extern int CM_Get_Device_IDW(uint dnDevInst, StringBuilder buffer, int bufferLen, uint ulFlags);
+    public static string GetParent(string deviceId) {
+        uint dn;
+        if (CM_Locate_DevNodeW(out dn, deviceId, 0) != 0) return null;
+        uint parent;
+        if (CM_Get_Parent(out parent, dn, 0) != 0) return null;
+        StringBuilder sb = new StringBuilder(1024);
+        if (CM_Get_Device_IDW(parent, sb, sb.Capacity, 0) != 0) return null;
+        return sb.ToString();
+    }
+}
+"@
+        }
+        $script:CfgMgrReady = $true
+    }
+    catch { $script:CfgMgrReady = $false }
+}
+
+$script:ParentCache = @{}
+
 function Get-DeviceParent {
     param([Parameter(Mandatory = $true)][string]$InstanceId)
-    try {
-        $p = Get-PnpDeviceProperty -InstanceId $InstanceId -KeyName 'DEVPKEY_Device_Parent' -ErrorAction Stop
-        if ($p -and $p.Data) { return [string]$p.Data }
+    if ($script:ParentCache.ContainsKey($InstanceId)) { return $script:ParentCache[$InstanceId] }
+    $result = $null
+    if ($script:CfgMgrReady) {
+        try { $result = [ShackCfgMgr]::GetParent($InstanceId) } catch { $result = $null }
     }
-    catch { }
-    return $null
+    else {
+        try {
+            $p = Get-PnpDeviceProperty -InstanceId $InstanceId -KeyName 'DEVPKEY_Device_Parent' -ErrorAction Stop
+            if ($p -and $p.Data) { $result = [string]$p.Data }
+        }
+        catch { }
+    }
+    $script:ParentCache[$InstanceId] = $result
+    return $result
 }
 
 function Get-DeviceAncestors {
@@ -448,20 +492,11 @@ function Get-SerialCommMap {
 }
 
 function Get-EndpointFunctionDevice {
-    # Finds the USB audio function behind a Windows audio endpoint (best effort, three methods).
-    param([Parameter(Mandatory = $true)][string]$EndpointInstanceId)
+    # Finds the USB audio function behind a Windows audio endpoint (best effort).
+    param([Parameter(Mandatory = $true)][string]$EndpointInstanceId, [string]$FriendlyName)
     $rx = '(USB\\VID_[0-9A-Fa-f]{4}&PID_[0-9A-Fa-f]{4}[^\s\}\x00]*)'
     $parent = Get-DeviceParent -InstanceId $EndpointInstanceId
     if ($parent -and $parent -match '^USB\\') { return $parent.ToUpper() }
-    try {
-        $props = Get-PnpDeviceProperty -InstanceId $EndpointInstanceId -ErrorAction Stop
-        foreach ($p in $props) {
-            foreach ($v in @($p.Data)) {
-                if ($v -is [string] -and $v -match $rx) { return $Matches[1].ToUpper() }
-            }
-        }
-    }
-    catch { }
     if ($EndpointInstanceId -match '\}\.(\{[0-9A-Fa-f\-]+\})$') {
         $guid = $Matches[1]
         foreach ($flow in @('Render', 'Capture')) {
@@ -474,6 +509,17 @@ function Get-EndpointFunctionDevice {
                 }
             }
         }
+    }
+    if ($FriendlyName -match 'USB') {
+        try {
+            $props = Get-PnpDeviceProperty -InstanceId $EndpointInstanceId -ErrorAction Stop
+            foreach ($p in $props) {
+                foreach ($v in @($p.Data)) {
+                    if ($v -is [string] -and $v -match $rx) { return $Matches[1].ToUpper() }
+                }
+            }
+        }
+        catch { }
     }
     return $parent
 }
@@ -501,7 +547,9 @@ function Get-StationDeviceMap {
     param([hashtable]$Labels)
     if (-not $Labels) { $Labels = @{} }
     $ports = @()
-    foreach ($d in @(Get-PnpDevice -PresentOnly -Class Ports -ErrorAction SilentlyContinue)) {
+    $portDevs = @(Get-PnpDevice -PresentOnly -Class Ports -ErrorAction SilentlyContinue)
+    Write-Log "  $($portDevs.Count) serial port(s); parent lookup via $(if ($script:CfgMgrReady) { 'cfgmgr32 (fast)' } else { 'WMI (slow)' })"
+    foreach ($d in $portDevs) {
         $id = Get-DeviceIdentity -InstanceId $d.InstanceId
         $portName = Get-PortNameFromRegistry -InstanceId $d.InstanceId
         $com = Get-ComNumber $portName
@@ -515,12 +563,13 @@ function Get-StationDeviceMap {
             Kind = 'Port'; InstanceId = $d.InstanceId; FriendlyName = $d.FriendlyName; Status = [string]$d.Status
             Com = $com; Vid = $id.Vid; Pid = $id.Pid; Interface = $id.Interface; Serial = $id.Serial
             Key = $id.Key; Group = $id.Group; Label = $label; Parent = $parent; Ancestors = $anc
-            LocationPath = (Get-DeviceLocationPath -InstanceId $d.InstanceId)
         }
     }
     $audio = @()
-    foreach ($e in @(Get-PnpDevice -PresentOnly -Class AudioEndpoint -ErrorAction SilentlyContinue)) {
-        $func = Get-EndpointFunctionDevice -EndpointInstanceId $e.InstanceId
+    $epDevs = @(Get-PnpDevice -PresentOnly -Class AudioEndpoint -ErrorAction SilentlyContinue)
+    Write-Log "  $($epDevs.Count) audio endpoint(s)"
+    foreach ($e in $epDevs) {
+        $func = Get-EndpointFunctionDevice -EndpointInstanceId $e.InstanceId -FriendlyName $e.FriendlyName
         $chain = @()
         if ($func) { $chain = @($func) + @(Get-DeviceAncestors -InstanceId $func) }
         $group = $null

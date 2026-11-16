@@ -25,7 +25,9 @@ $summary.Add('')
 
 function Invoke-Section {
     param([string]$Name, [scriptblock]$Block)
-    try { & $Block; Write-Log "$Name" 'OK' }
+    Write-Log "$Name..."
+    $sw = [Diagnostics.Stopwatch]::StartNew()
+    try { & $Block; Write-Log ('{0} ({1:N0} s)' -f $Name, $sw.Elapsed.TotalSeconds) 'OK' }
     catch { Write-Log "$Name failed: $($_.Exception.Message)" 'WARN' }
 }
 
@@ -63,7 +65,7 @@ Invoke-Section 'Serial ports and audio endpoints' {
     $script:map = Get-StationDeviceMap -Labels $labels
     $map = $script:map
     Save-Json -Object $map -Path (Join-Path $out 'station-devices.json')
-    $map.Ports | Select-Object Com, FriendlyName, Group, Label, Serial, InstanceId, LocationPath |
+    $map.Ports | Select-Object Com, FriendlyName, Group, Label, Serial, InstanceId, Parent |
         Sort-Object Com | Export-Csv (Join-Path $out 'com-ports.csv') -NoTypeInformation
     $map.Audio | Select-Object Flow, FriendlyName, Group, Label, FunctionDevice, InstanceId |
         Sort-Object Group, Flow | Export-Csv (Join-Path $out 'audio-endpoints.csv') -NoTypeInformation
@@ -102,6 +104,7 @@ Invoke-Section 'Serial ports and audio endpoints' {
 # --- All USB devices with parents (for troubleshooting hub layout) ----------
 Invoke-Section 'USB device tree' {
     $usb = @(Get-PnpDevice -PresentOnly -ErrorAction SilentlyContinue | Where-Object { $_.InstanceId -match '^(USB|FTDIBUS|USBSTOR)\\' })
+    Write-Log "  $($usb.Count) USB device(s)"
     $rows = foreach ($d in $usb) {
         [pscustomobject]@{
             Class        = $d.Class
@@ -109,7 +112,6 @@ Invoke-Section 'USB device tree' {
             Status       = [string]$d.Status
             InstanceId   = $d.InstanceId
             Parent       = (Get-DeviceParent -InstanceId $d.InstanceId)
-            LocationPath = (Get-DeviceLocationPath -InstanceId $d.InstanceId)
         }
     }
     $rows | Sort-Object Parent, InstanceId | Export-Csv (Join-Path $out 'usb-devices.csv') -NoTypeInformation

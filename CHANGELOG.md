@@ -2,6 +2,12 @@
 
 Date-based versions (YYYY.MM.DD).
 
+## 2026.11.16 (fix 1)
+
+- Device discovery uses cfgmgr32 for parent lookups instead of WMI. On the first real run, 01-Inventory stalled for 20+ minutes on a PC with many USB devices.
+- Audio endpoints resolve through the MMDevices registry first; the slow all-properties WMI scan is now a last resort.
+- 01-Inventory logs each section as it starts, with elapsed time, and device counts.
+
 ## 2026.11.16
 
 First release.
