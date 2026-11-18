@@ -99,7 +99,13 @@
     # Verification (07-Verify.ps1)
     # ---------------------------------------------------------------------
     Verify = @{
+        # Windows services that must be running. Drop W32Time if a third-party time
+        # program (Dimension 4, Meinberg NTP, BktTimeSync) keeps the clock instead;
+        # running both makes them fight over the clock.
         Services         = @('W32Time')
+        # Programs that must be running but are not services (process name, with or
+        # without .exe). Example for Dimension 4, which runs as a tray app: @('D4')
+        Processes        = @()
         NtpServer        = 'time.windows.com'
         ClockWarnSeconds = 0.2
         ClockFailSeconds = 1.0

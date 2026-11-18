@@ -204,6 +204,21 @@ Save-Json -Object $one.ToArray() -Path $tmp
 Assert-True ((Get-Content -LiteralPath $tmp -Raw).TrimStart().StartsWith('[')) 'single-item log is still a JSON array'
 Remove-Item -LiteralPath $tmp -Force
 
+# --- Get-ProcessCheck (07-Verify 'Processes') -------------------------------------
+$pc = @(Get-ProcessCheck -Wanted @('D4') -Running @('explorer', 'D4', 'N1MM Logger.Net'))
+Assert-Equal 1 $pc.Count 'process check: one row per wanted name'
+Assert-Equal 'PASS' $pc[0].State 'process check: running process passes'
+$pc = @(Get-ProcessCheck -Wanted @('d4.exe') -Running @('D4'))
+Assert-Equal 'PASS' $pc[0].State 'process check: case-insensitive, .exe optional'
+$pc = @(Get-ProcessCheck -Wanted @('D4') -Running @('explorer'))
+Assert-Equal 'FAIL' $pc[0].State 'process check: missing process fails'
+$pc = @(Get-ProcessCheck -Wanted @('D4', 'AnyDesk') -Running @('anydesk'))
+Assert-Equal 'FAIL,PASS' (($pc | ForEach-Object State) -join ',') 'process check: each name judged separately'
+$pc = @(Get-ProcessCheck -Wanted @() -Running @('D4'))
+Assert-Equal 0 $pc.Count 'process check: empty list gives no rows'
+$pc = @(Get-ProcessCheck -Wanted @('D4') -Running @('D4x', 'xD4'))
+Assert-Equal 'FAIL' $pc[0].State 'process check: no partial-name matches'
+
 Write-Host ''
 if ($script:fail -gt 0) { Write-Host "$script:pass passed, $script:fail FAILED" -ForegroundColor Red; exit 1 }
 Write-Host "$script:pass passed, 0 failed" -ForegroundColor Green

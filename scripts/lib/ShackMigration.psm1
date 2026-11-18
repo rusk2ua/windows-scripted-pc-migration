@@ -5,7 +5,7 @@
 
 Set-StrictMode -Version 2.0
 
-$script:ToolVersion = '2026.11.18'
+$script:ToolVersion = '2026.11.18.2'
 $script:LogFile = $null
 
 function Get-ToolVersion { return $script:ToolVersion }
@@ -728,5 +728,23 @@ $script:PowerSettings = @{
 }
 
 function Get-PowerSettingTable { return $script:PowerSettings }
+
+# Programs that must be running but are not services (e.g. Dimension 4, a tray app).
+# Pure: takes the wanted names and the running process names, returns PASS/FAIL rows.
+# Names match case-insensitively, with or without '.exe'.
+function Get-ProcessCheck {
+    param([string[]]$Wanted, [string[]]$Running)
+    $norm = { param($n) ("$n" -replace '(?i)\.exe$', '').Trim().ToLowerInvariant() }
+    $have = @{}
+    foreach ($r in @($Running)) { if ($r) { $have[(& $norm $r)] = $true } }
+    $rows = New-Object System.Collections.Generic.List[object]
+    foreach ($w in @($Wanted)) {
+        if (-not $w) { continue }
+        $key = & $norm $w
+        if ($have.ContainsKey($key)) { $rows.Add([pscustomobject]@{ Name = $w; State = 'PASS'; Detail = 'running' }) }
+        else { $rows.Add([pscustomobject]@{ Name = $w; State = 'FAIL'; Detail = 'not running (start it, and set it to load at Windows startup)' }) }
+    }
+    return $rows.ToArray()
+}
 
 Export-ModuleMember -Function * -Variable @()

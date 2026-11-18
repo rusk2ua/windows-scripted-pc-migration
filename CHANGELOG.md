@@ -2,6 +2,11 @@
 
 Date-based versions (YYYY.MM.DD).
 
+## 2026.11.18.2
+
+- `07-Verify`: new config setting `Verify.Processes` lists programs that must be running but aren't Windows services, such as Dimension 4 (`@('D4')`). A missing one is a FAIL with a hint to start it and set it to load at startup. Before this, a stopped time-sync tray app only showed up later, as clock drift. Matching is case-insensitive and `.exe` is optional. Tests added.
+- Example config: a note on `Services` saying to drop `W32Time` when Dimension 4, Meinberg or BktTimeSync keeps the clock, so the two don't fight over it.
+
 ## 2026.11.18
 
 - `AudioSuffixCapture` / `AudioSuffixRender` may be empty, so RX and TX share one name; no trailing space.

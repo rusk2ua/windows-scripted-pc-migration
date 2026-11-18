@@ -78,6 +78,13 @@ foreach ($s in @(Get-V 'Services' @('W32Time'))) {
     else { Add-Result 'Service' $s 'PASS' 'running' }
 }
 
+# --- Processes (programs that must be running but are not services) ---------------
+$wantProcs = @(Get-V 'Processes' @())
+if ($wantProcs.Count -gt 0) {
+    $running = @(Get-Process -ErrorAction SilentlyContinue | ForEach-Object { $_.ProcessName })
+    foreach ($r in @(Get-ProcessCheck -Wanted $wantProcs -Running $running)) { Add-Result 'Process' $r.Name $r.State $r.Detail }
+}
+
 # --- Power / USB ------------------------------------------------------------------
 $pt = Get-PowerSettingTable
 $checks = @(
