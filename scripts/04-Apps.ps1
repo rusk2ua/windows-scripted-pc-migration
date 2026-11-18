@@ -59,6 +59,11 @@ if ($haveWinget) {
             else {
                 Write-Log "Installing $($app.Id) ($scope)" 'ACTION'
                 & winget install --id $app.Id -e --scope $scope --silent --accept-package-agreements --accept-source-agreements
+                if ($LASTEXITCODE -eq -1978335216) {
+                    # 0x8A150010 = no installer for that scope (e.g. portable-only packages). Retry and let winget choose.
+                    Write-Log "$($app.Id) has no $scope-scope installer; retrying without --scope" 'WARN'
+                    & winget install --id $app.Id -e --silent --accept-package-agreements --accept-source-agreements
+                }
                 if ($LASTEXITCODE -eq 0) { $status = 'Installed now' }
                 else { $status = "Install failed (exit $LASTEXITCODE)"; Write-Log "$($app.Id): install failed, exit $LASTEXITCODE" 'ERROR' }
             }

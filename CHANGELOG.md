@@ -4,6 +4,7 @@ Date-based versions (YYYY.MM.DD).
 
 ## 2026.11.17
 
+- `04-Apps`: when winget reports no installer for the requested scope (0x8A150010, seen with ArduinoSA.CLI), retry without `--scope`.
 - New config setting `OldComputerName`: 05-PortMap and 06-Restore read only that PC's inventory/backup. Without it, renaming the new PC part-way through made its own earlier inventory look like the "old PC".
 
 - Fix: `03-Build -Apply` and `06-Restore -Apply` applied their changes but failed to write `changes.json` ("Argument types do not match"), so `-Undo` had nothing to read. `Save-Json` now takes the list directly. Regression test added.
