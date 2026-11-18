@@ -207,6 +207,6 @@ if (-not $Apply) {
     Write-Log "Report complete. $pending setting(s) would change. Rerun with -Apply." 'OK'
     return
 }
-Save-Json -Object @($changes) -Path (Join-Path $out 'changes.json')
+Save-Json -Object $changes.ToArray() -Path (Join-Path $out 'changes.json')
 Write-Log "Applied $($changes.Count) change(s). Log: $out\changes.json. Undo with: .\scripts\03-Build.ps1 -Undo" 'OK'
 Write-Log 'Reboot now so Fast Startup and device power settings take effect.' 'WARN'

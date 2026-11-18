@@ -157,6 +157,6 @@ if ($running.Count -gt 0) {
 }
 
 if (-not $Apply) { Write-Log 'Report complete. Rerun with -Apply to restore.' 'OK'; return }
-Save-Json -Object @($changes) -Path (Join-Path $out 'changes.json')
+Save-Json -Object $changes.ToArray() -Path (Join-Path $out 'changes.json')
 Write-Log "Restored $($changes.Count) item(s). Undo with: .\scripts\06-Restore.ps1 -Undo" 'OK'
 Write-Log 'Open each app and re-select COM ports and audio devices if they differ (see 05 PORTMAP.md).'

@@ -186,6 +186,24 @@ $plan5 = @(New-PortPlan -OldPorts $old5 -NewPorts $new5)
 Assert-Equal 'USB\VID_1A86&PID_7523\5&9&0&1' (Get-Row $plan5 'a*').NewInstanceId 'label FSK picks its own device'
 Assert-Equal 'USB\VID_1A86&PID_7523\5&9&0&2' (Get-Row $plan5 'b*').NewInstanceId 'label FSK2 picks its own device'
 
+# --- Save-Json regression: a List[object] change log must save (03-Build bug, 2026-11-17) ---
+$tmp = [IO.Path]::GetTempFileName()
+$list = New-Object System.Collections.Generic.List[object]
+$list.Add([pscustomobject]@{ Kind = 'Registry'; Before = [pscustomobject]@{ Exists = $false; Value = $null; Type = $null }; After = 1 })
+$list.Add([pscustomobject]@{ Kind = 'Power'; Before = 1; After = 0 })
+$threw = $false
+try { Save-Json -Object $list.ToArray() -Path $tmp } catch { $threw = $true }
+Assert-True (-not $threw) 'Save-Json accepts List.ToArray()'
+Assert-Equal 2 (@(Read-Json -Path $tmp)).Count 'change log round-trips both items'
+$threw = $false
+try { Save-Json -Object $list -Path $tmp } catch { $threw = $true }
+Assert-True (-not $threw) 'Save-Json accepts a List directly'
+$one = New-Object System.Collections.Generic.List[object]
+$one.Add([pscustomobject]@{ Kind = 'Power' })
+Save-Json -Object $one.ToArray() -Path $tmp
+Assert-True ((Get-Content -LiteralPath $tmp -Raw).TrimStart().StartsWith('[')) 'single-item log is still a JSON array'
+Remove-Item -LiteralPath $tmp -Force
+
 Write-Host ''
 if ($script:fail -gt 0) { Write-Host "$script:pass passed, $script:fail FAILED" -ForegroundColor Red; exit 1 }
 Write-Host "$script:pass passed, 0 failed" -ForegroundColor Green

@@ -5,7 +5,7 @@
 
 Set-StrictMode -Version 2.0
 
-$script:ToolVersion = '2026.11.16.2'
+$script:ToolVersion = '2026.11.17'
 $script:LogFile = $null
 
 function Get-ToolVersion { return $script:ToolVersion }
@@ -126,8 +126,9 @@ function Write-Log {
 }
 
 function Save-Json {
-    param([Parameter(Mandatory = $true)]$Object, [Parameter(Mandatory = $true)][string]$Path)
-    $Object | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $Path -Encoding UTF8
+    param([Parameter(Mandatory = $true)][AllowEmptyCollection()]$Object, [Parameter(Mandatory = $true)][string]$Path)
+    if ($Object -is [System.Collections.IList] -and -not ($Object -is [array])) { $Object = [object[]]@($Object | ForEach-Object { $_ }) }
+    ConvertTo-Json -InputObject $Object -Depth 8 | Set-Content -LiteralPath $Path -Encoding UTF8
 }
 
 function Read-Json {

@@ -2,6 +2,10 @@
 
 Date-based versions (YYYY.MM.DD).
 
+## 2026.11.17
+
+- Fix: `03-Build -Apply` and `06-Restore -Apply` applied their changes but failed to write `changes.json` ("Argument types do not match"), so `-Undo` had nothing to read. `Save-Json` now takes the list directly. Regression test added.
+
 ## 2026.11.16.2
 
 - `02-Backup`: per-folder `ExcludeDirs` / `ExcludeFiles` (passed to robocopy and honoured in the size report). Example config skips the WSJT-X `save` folders, which held ~40 GB of .wav files on the first real run.
