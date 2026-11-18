@@ -2,6 +2,10 @@
 
 Date-based versions (YYYY.MM.DD).
 
+## 2026.11.18
+
+- Audio endpoint names are read from the MMDevices registry (what Sound settings writes). `Get-PnpDevice` kept showing the old "N- USB Audio CODEC" names after a rename, so 07-Verify warned about correctly renamed devices.
+
 ## 2026.11.17
 
 - `04-Apps`: warns when machine-scope apps are skipped because the window is not elevated (previously silent).

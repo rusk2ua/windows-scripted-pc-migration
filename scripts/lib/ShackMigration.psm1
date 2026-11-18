@@ -5,7 +5,7 @@
 
 Set-StrictMode -Version 2.0
 
-$script:ToolVersion = '2026.11.17'
+$script:ToolVersion = '2026.11.18'
 $script:LogFile = $null
 
 function Get-ToolVersion { return $script:ToolVersion }
@@ -550,6 +550,25 @@ function Get-EndpointFunctionDevice {
     return $parent
 }
 
+function Get-EndpointNameFromRegistry {
+    # The name you type in Sound settings (mmsys.cpl) lives in the MMDevices registry
+    # (PKEY_Device_DeviceDesc). Get-PnpDevice can keep showing the old name until a reboot.
+    param([Parameter(Mandatory = $true)][string]$EndpointInstanceId)
+    if ($EndpointInstanceId -notmatch '\}\.(\{[0-9A-Fa-f\-]+\})$') { return $null }
+    $guid = $Matches[1]
+    foreach ($flow in @('Render', 'Capture')) {
+        $k = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\MMDevices\Audio\$flow\$guid\Properties"
+        if (Test-Path -LiteralPath $k) {
+            try {
+                $v = (Get-ItemProperty -LiteralPath $k -Name '{a45c254e-df1c-4efd-8020-67d146a850e0},2' -ErrorAction Stop).'{a45c254e-df1c-4efd-8020-67d146a850e0},2'
+                if ($v) { return ([string]$v).Trim() }
+            }
+            catch { }
+        }
+    }
+    return $null
+}
+
 function Get-LabelFilePath {
     param([Parameter(Mandatory = $true)][hashtable]$Config, [string]$HostName = $env:COMPUTERNAME)
     return (Join-Path (Join-Path $Config.DataRoot 'labels') "$HostName.json")
@@ -603,6 +622,8 @@ function Get-StationDeviceMap {
             if ($p.Group -and $p.Parent -and ($chain -contains $p.Parent)) { $group = $p.Group; break }
         }
         $split = Split-EndpointName -FriendlyName $e.FriendlyName
+        $regName = Get-EndpointNameFromRegistry -EndpointInstanceId $e.InstanceId
+        if ($regName) { $split.Name = $regName }
         $label = $null
         if ($Labels.ContainsKey($e.InstanceId)) { $label = $Labels[$e.InstanceId] }
         if (-not $group -and $label) {
