@@ -73,7 +73,8 @@ Conventions below:
    Windows does not supply them. Do this BEFORE step 7, which stops Windows
    Update from installing drivers.
 5. Copy `C:\ShackMigration` from the stick to the same path. Clone the repo and
-   copy in your `station.psd1`.
+   copy in your `station.psd1`. Set `OldComputerName` in it to the old PC's name.
+   If you rename the new PC, do it now, before running any script.
 6. Baseline inventory (elevated): `.\scripts\01-Inventory.ps1`
 7. **Station settings** (elevated):
 

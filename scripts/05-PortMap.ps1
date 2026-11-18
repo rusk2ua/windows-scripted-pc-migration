@@ -144,8 +144,15 @@ Start-StepLog -Folder $out -Step '05-PortMap'
 if ($Apply) { Assert-Admin }
 
 if (-not $OldInventory) {
-    $oldFolder = Find-LatestRunFolder -Config $cfg -Step '01-Inventory' -MustContain 'station-devices.json' -OtherHost
-    if (-not $oldFolder) { throw "No 01-Inventory from another PC under $($cfg.DataRoot). Run 01-Inventory.ps1 on the old PC and copy DataRoot here, or pass -OldInventory <path to station-devices.json>." }
+    if ($cfg.ContainsKey('OldComputerName') -and $cfg.OldComputerName) {
+        $oldFolder = Find-LatestRunFolder -Config $cfg -Step '01-Inventory' -MustContain 'station-devices.json' -HostName $cfg.OldComputerName
+        if (-not $oldFolder) { throw "No 01-Inventory from $($cfg.OldComputerName) under $($cfg.DataRoot). Check OldComputerName in your config, or pass -OldInventory." }
+    }
+    else {
+        $oldFolder = Find-LatestRunFolder -Config $cfg -Step '01-Inventory' -MustContain 'station-devices.json' -OtherHost
+        if (-not $oldFolder) { throw "No 01-Inventory from another PC under $($cfg.DataRoot). Run 01-Inventory.ps1 on the old PC and copy DataRoot here, or pass -OldInventory <path to station-devices.json>." }
+        Write-Log 'OldComputerName is not set in your config; using the newest inventory from any other PC name. Set it to be sure.' 'WARN'
+    }
     $OldInventory = Join-Path $oldFolder 'station-devices.json'
 }
 $old = Read-Json -Path $OldInventory

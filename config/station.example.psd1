@@ -10,6 +10,11 @@
     # Copy this whole folder from the old PC to the new PC before running 05/06.
     DataRoot = 'C:\ShackMigration'
 
+    # Computer name of the OLD PC (as shown in its 01-Inventory SUMMARY.md).
+    # 05-PortMap and 06-Restore read only that PC's inventory and backup, so
+    # renaming the new PC part-way through cannot confuse them.
+    OldComputerName = ''
+
     # ---------------------------------------------------------------------
     # Radios with serial-numbered USB ports (Icom shows them as e.g.
     # USB\VID_10C4&PID_EA60\IC-7610_12345678_A). Group = serial without _A/_B.

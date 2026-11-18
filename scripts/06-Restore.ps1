@@ -63,8 +63,13 @@ if ($Undo) {
 # Find the backup
 # ===========================================================================
 if (-not $BackupFolder) {
-    $BackupFolder = Find-LatestRunFolder -Config $cfg -Step '02-Backup' -MustContain 'manifest.json' -OtherHost
-    if (-not $BackupFolder) { $BackupFolder = Find-LatestRunFolder -Config $cfg -Step '02-Backup' -MustContain 'manifest.json' }
+    if ($cfg.ContainsKey('OldComputerName') -and $cfg.OldComputerName) {
+        $BackupFolder = Find-LatestRunFolder -Config $cfg -Step '02-Backup' -MustContain 'manifest.json' -HostName $cfg.OldComputerName
+    }
+    else {
+        $BackupFolder = Find-LatestRunFolder -Config $cfg -Step '02-Backup' -MustContain 'manifest.json' -OtherHost
+        if (-not $BackupFolder) { $BackupFolder = Find-LatestRunFolder -Config $cfg -Step '02-Backup' -MustContain 'manifest.json' }
+    }
 }
 if (-not $BackupFolder) { throw "No 02-Backup with manifest.json under $($cfg.DataRoot). Pass -BackupFolder." }
 $man = Read-Json -Path (Join-Path $BackupFolder 'manifest.json')
