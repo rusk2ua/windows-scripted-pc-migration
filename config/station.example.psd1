@@ -24,6 +24,7 @@
         @{ Group = 'IC-7610_12345678'; Name = '7610-L' }
         @{ Group = 'IC-9700_12345679'; Name = '9700' }
     )
+    # Set both to '' to give RX and TX the same name (e.g. 'IC-9700').
     AudioSuffixCapture = 'RX'
     AudioSuffixRender  = 'TX'
 

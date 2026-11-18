@@ -204,7 +204,7 @@ foreach ($g in $groups) {
         if ($o.Count -eq 0 -and $n.Count -eq 0) { continue }
         $suffix = $renSuffix
         if ($flow -eq 'Capture') { $suffix = $capSuffix }
-        $suggest = "$base $suffix"
+        $suggest = ("$base $suffix").Trim()
         $newName = $null
         if ($n.Count -gt 0) { $newName = $n[0].FriendlyName }
         $state = 'Rename'

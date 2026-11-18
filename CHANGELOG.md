@@ -4,6 +4,7 @@ Date-based versions (YYYY.MM.DD).
 
 ## 2026.11.18
 
+- `AudioSuffixCapture` / `AudioSuffixRender` may be empty, so RX and TX share one name; no trailing space.
 - Audio endpoint names are read from the MMDevices registry (what Sound settings writes). `Get-PnpDevice` kept showing the old "N- USB Audio CODEC" names after a rename, so 07-Verify warned about correctly renamed devices.
 
 ## 2026.11.17
