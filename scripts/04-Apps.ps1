@@ -78,6 +78,13 @@ if ($haveWinget) {
     & winget pin list 2>$null | Out-File (Join-Path $out 'winget-pins.txt') -Encoding UTF8
 }
 $rows | Export-Csv (Join-Path $out 'winget-apps.csv') -NoTypeInformation
+$skippedMachine = @($rows | Where-Object { $_.Status -like 'Skipped (machine*' })
+if ($skippedMachine.Count -gt 0) {
+    Write-Log "$($skippedMachine.Count) machine-scope app(s) were NOT installed because this window is not elevated. Open an elevated window (Start-Process powershell -Verb RunAs) and run -Apply again." 'WARN'
+}
+elseif (-not $Apply -and -not $admin -and @($rows | Where-Object { $_.Scope -eq 'machine' -and $_.Status -eq 'Missing' }).Count -gt 0) {
+    Write-Log 'This window is not elevated: -Apply here installs only user-scope apps. Machine-scope apps need an elevated window.' 'WARN'
+}
 
 # --- Manual installs checklist -----------------------------------------------
 $progs = Get-InstalledPrograms
