@@ -59,16 +59,25 @@ if ($haveWinget) {
             else {
                 Write-Log "Installing $($app.Id) ($scope)" 'ACTION'
                 & winget install --id $app.Id -e --scope $scope --silent --accept-package-agreements --accept-source-agreements
-                if ($LASTEXITCODE -eq -1978335216) {
-                    # 0x8A150010 = no installer for that scope (e.g. portable-only packages). Retry and let winget choose.
-                    Write-Log "$($app.Id) has no $scope-scope installer; retrying without --scope" 'WARN'
+                $noScope = ($LASTEXITCODE -eq -1978335216)
+                if ($noScope -and $admin) {
+                    # 0x8A150010 = no installer for that scope. From an elevated window the only other
+                    # option is a per-user install, which must not run elevated. Hand it to a normal window.
+                    Write-Log "$($app.Id) has no machine-wide installer. Install it from a NORMAL window and set Scope = 'user' in your config." 'WARN'
+                    $userCommands += "winget install --id $($app.Id) -e --accept-package-agreements --accept-source-agreements"
+                    $status = 'Skipped (per-user only - run from a normal window)'
+                }
+                elseif ($noScope) {
+                    # Normal window asked for user scope but the package is machine-only (e.g. an MSI). Let winget choose; it will ask for elevation.
+                    Write-Log "$($app.Id) has no per-user installer; retrying without --scope (expect an admin prompt). Set Scope = 'machine' in your config." 'WARN'
                     & winget install --id $app.Id -e --silent --accept-package-agreements --accept-source-agreements
                 }
-                if ($LASTEXITCODE -eq 0) { $status = 'Installed now' }
+                if ($status -like 'Skipped*') { }
+                elseif ($LASTEXITCODE -eq 0) { $status = 'Installed now' }
                 else { $status = "Install failed (exit $LASTEXITCODE)"; Write-Log "$($app.Id): install failed, exit $LASTEXITCODE" 'ERROR' }
             }
         }
-        if ($Apply -and $pin -and $admin -and ($status -like 'Installed*')) {
+        if ($Apply -and $pin -and ($status -like 'Installed*')) {
             & winget pin add --id $app.Id --blocking --accept-source-agreements 2>$null | Out-Null
             if ($LASTEXITCODE -eq 0) { Write-Log "Pinned $($app.Id)" 'ACTION' }
             else { Write-Log "Pin for $($app.Id) not added (exit $LASTEXITCODE; may already exist)" 'WARN' }
